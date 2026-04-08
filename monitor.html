@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CCIT IoT LED Monitor</title>
+  <link rel="stylesheet" href="" />
+  <style>
+    :root{
+      --bg:#f7f9fb;
+      --card:#ffffff;
+      --muted:#667085;
+      --accent:#0ea5a4;
+      --danger:#ef4444;
+      --bulb-off:#d1d5db;
+      --bulb-on:#ffd166;
+      --glass: rgba(255,255,255,0.6);
+    }
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,system-ui,-apple-system,'Helvetica Neue',Arial}
+    body{background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:var(--card);border-radius:12px;padding:28px;box-shadow:0 6px 18px rgba(15,23,42,0.06);max-width:540px;width:100%}
+    h1{margin:0 0 10px;font-size:20px}
+    p.lead{margin:0 0 18px;color:var(--muted)}
+
+    .bulb-stage{display:flex;align-items:center;gap:18px}
+    .bulb-shell{position:relative;width:110px;height:140px}
+    .bulb{width:86px;height:86px;background:var(--bulb-off);border-radius:50%;margin:0 auto;box-shadow:inset -6px -12px 24px rgba(0,0,0,0.12);transition:all .25s ease}
+    .bulb-glow{position:absolute;left:50%;top:18px;transform:translateX(-50%);width:86px;height:86px;border-radius:50%;filter:blur(14px);opacity:0;transition:opacity .25s linear}
+    .bulb-on .bulb{background:linear-gradient(180deg,var(--bulb-on) 0%, #ffeb9a 100%);box-shadow:0 10px 30px rgba(255,177,41,0.18), inset -6px -12px 24px rgba(0,0,0,0.08)}
+    .bulb-on .bulb-glow{background:var(--bulb-on);opacity:1}
+
+    .bulb-label{font-size:14px;color:var(--muted)}
+    .status{margin-top:16px;font-size:13px;color:var(--muted)}
+    .logs{margin-top:12px;border-radius:8px;background:#fbfdff;padding:10px;font-family:monospace;font-size:12px;color:#0f1724;max-height:140px;overflow:auto}
+    .actions{margin-top:18px;display:flex;gap:8px;align-items:center}
+    .btn{padding:8px 12px;border-radius:8px;border:1px solid rgba(15,23,42,0.06);background:linear-gradient(180deg,var(--glass),#fff);cursor:pointer}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+
+    .hint{font-size:12px;color:#9aa4b2}
+    @media (max-width:520px){.bulb-shell{width:90px;height:120px}.bulb{width:72px;height:72px}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>CCIT IoT LED Monitor</h1>
+    <p class="lead">訂閱 topic <strong>ccit/iot/led</strong>，接收 "on" 或 "off" 以顯示燈泡狀態。</p>
+
+    <div class="bulb-stage" id="bulbStage">
+      <div class="bulb-shell" aria-hidden="true">
+        <div class="bulb-glow"></div>
+        <div class="bulb"></div>
+      </div>
+      <div>
+        <div class="bulb-label">燈泡狀態：<strong id="bulbStateText">連線中...</strong></div>
+        <div class="status" id="connState">狀態：未連線</div>
+        <div class="actions">
+          <button class="btn" id="btnReconnect">重新連線</button>
+          <div class="hint">如果頁面使用 HTTPS，請使用 WSS (8081)；若無法，瀏覽器會回退到 WS (8080)。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="logs" id="logBox" aria-live="polite"></div>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    const brokerUrls = [
+      "wss://test.mosquitto.org:8081/mqtt",
+      "ws://test.mosquitto.org:8080/mqtt"
+    ];
+    const topic = "ccit/iot/led";
+
+    const bulbStage = document.getElementById('bulbStage');
+    const bulbStateText = document.getElementById('bulbStateText');
+    const connState = document.getElementById('connState');
+    const logBox = document.getElementById('logBox');
+    const btnReconnect = document.getElementById('btnReconnect');
+
+    let client = null;
+    let activeBrokerIndex = 0;
+    let currentAttemptId = 0;
+
+    function addLog(msg){
+      const time = new Date().toLocaleTimeString();
+      logBox.innerText = `[${time}] ${msg}\n` + logBox.innerText;
+    }
+
+    function setBulbOn(on){
+      if (on){
+        bulbStage.classList.add('bulb-on');
+        bulbStateText.textContent = '亮';
+      } else {
+        bulbStage.classList.remove('bulb-on');
+        bulbStateText.textContent = '暗';
+      }
+    }
+
+    function setConnectionState(state, text){
+      connState.textContent = `狀態：${text}`;
+      if (state === 'connected'){
+        btnReconnect.disabled = false;
+      } else if (state === 'connecting'){
+        btnReconnect.disabled = true;
+      } else {
+        btnReconnect.disabled = false;
+      }
+    }
+
+    function getClientId(){
+      return 'web-monitor-' + Math.random().toString(16).slice(2,10);
+    }
+
+    function clearClient(){
+      try{ if (client) client.end(true); }catch(e){}
+      client = null;
+    }
+
+    function startConnect(attemptId, brokerIndex=0){
+      currentAttemptId = attemptId;
+      setConnectionState('connecting','連線中...');
+      const brokerUrl = brokerUrls[brokerIndex];
+      addLog(`嘗試連線：${brokerUrl}`);
+
+      const options = { clientId: getClientId(), reconnectPeriod: 0, connectTimeout: 5000 };
+      const c = mqtt.connect(brokerUrl, options);
+      client = c;
+
+      let resolved = false;
+
+      c.on('connect', () => {
+        if (currentAttemptId !== attemptId) return;
+        resolved = true;
+        activeBrokerIndex = brokerIndex;
+        setConnectionState('connected','已連線');
+        addLog(`已連線到 ${brokerUrl}`);
+        c.subscribe(topic, { qos: 0 }, (err) => {
+          if (err) addLog('訂閱失敗：' + err.message);
+          else addLog('已訂閱：' + topic);
+        });
+      });
+
+      c.on('error', (err) => {
+        if (currentAttemptId !== attemptId) return;
+        addLog('連線錯誤：' + err.message);
+        c.end(true);
+        if (resolved) return;
+
+        const next = brokerIndex + 1;
+        if (next < brokerUrls.length){
+          addLog('切換到下一個 broker');
+          startConnect(attemptId, next);
+        } else {
+          setConnectionState('disconnected','連線失敗');
+        }
+      });
+
+      c.on('close', () => {
+        if (currentAttemptId !== attemptId) return;
+        addLog('連線已關閉');
+        setConnectionState('disconnected','已中斷');
+      });
+
+      c.on('message', (t, message) => {
+        if (t !== topic) return;
+        const payload = message.toString().trim().toLowerCase();
+        addLog(`收到：${t} -> ${payload}`);
+        if (payload === 'on') setBulbOn(true);
+        else if (payload === 'off') setBulbOn(false);
+        else addLog('非預期內容：' + payload);
+      });
+
+      // Fallback: if no connect within timeout, try next
+      setTimeout(() => {
+        if (currentAttemptId !== attemptId) return;
+        if (!client || client.disconnected){
+          // If still not connected and not resolved, try next
+          if (!client || client.connected === false){
+            const next = brokerIndex + 1;
+            if (next < brokerUrls.length){
+              try{ client.end(true); }catch(e){}
+              startConnect(attemptId, next);
+            } else {
+              setConnectionState('disconnected','連線失敗');
+              addLog('所有 broker 嘗試失敗');
+            }
+          }
+        }
+      }, 6000);
+    }
+
+    function connect(){
+      clearClient();
+      startConnect(Date.now());
+    }
+
+    btnReconnect.addEventListener('click', () => connect());
+
+    // 初始化
+    addLog('頁面已載入');
+    setBulbOn(false);
+    connect();
+  </script>
+</body>
+</html>
