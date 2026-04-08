@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CCIT IoT LED 控制台</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07111f;
+        --bg-2: #0d1b2a;
+        --panel: rgba(11, 22, 38, 0.82);
+        --panel-border: rgba(147, 197, 253, 0.18);
+        --text: #e5eefb;
+        --muted: #8aa0be;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+        --danger: #fb7185;
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", "Noto Sans TC", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 32%),
+          radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.14), transparent 28%),
+          linear-gradient(160deg, var(--bg), var(--bg-2));
+      }
+
+      .wrap {
+        width: min(960px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 40px 0 56px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        width: fit-content;
+        padding: 8px 14px;
+        border: 1px solid var(--panel-border);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--muted);
+        font-size: 0.92rem;
+        backdrop-filter: blur(14px);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--danger);
+        box-shadow: 0 0 0 6px rgba(251, 113, 133, 0.12);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 4rem);
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+
+      .subtitle {
+        margin: 0;
+        max-width: 60ch;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.7;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 20px;
+      }
+
+      .card {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), transparent 40%, rgba(34, 197, 94, 0.08));
+        pointer-events: none;
+      }
+
+      .card-inner {
+        position: relative;
+        padding: 24px;
+      }
+
+      .section-title {
+        margin: 0 0 12px;
+        font-size: 1.05rem;
+        letter-spacing: 0.02em;
+      }
+
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        font-size: 0.93rem;
+      }
+
+      .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--danger);
+      }
+
+      .status-indicator.ok {
+        background: var(--accent-2);
+        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.12);
+      }
+
+      .status-indicator.waiting {
+        background: var(--accent);
+        box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.12);
+      }
+
+      .form {
+        display: grid;
+        gap: 16px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      input {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        background: rgba(3, 10, 20, 0.72);
+        color: var(--text);
+        font: inherit;
+        outline: none;
+        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      input:focus {
+        border-color: rgba(56, 189, 248, 0.8);
+        box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.14);
+      }
+
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 16px;
+        padding: 14px 18px;
+        font: inherit;
+        font-weight: 700;
+        color: #fff;
+        cursor: pointer;
+        transition: transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+        transform: none;
+      }
+
+      .primary {
+        background: linear-gradient(135deg, #0ea5e9, #2563eb);
+        box-shadow: 0 14px 32px rgba(37, 99, 235, 0.25);
+      }
+
+      .success {
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        box-shadow: 0 14px 32px rgba(34, 197, 94, 0.22);
+      }
+
+      .ghost {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .danger {
+        background: linear-gradient(135deg, #ef4444, #f97316);
+        box-shadow: 0 14px 32px rgba(239, 68, 68, 0.22);
+      }
+
+      .panel-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .bulb-stage {
+        display: grid;
+        place-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 24px 16px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .bulb-shell {
+        position: relative;
+        width: 132px;
+        height: 168px;
+      }
+
+      .bulb-glow {
+        position: absolute;
+        inset: 18px 18px 42px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(253, 224, 71, 0.95), rgba(250, 204, 21, 0.28) 45%, transparent 72%);
+        opacity: 0.05;
+        filter: blur(8px);
+        transition: opacity 0.25s ease;
+      }
+
+      .bulb {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 96px;
+        height: 120px;
+        transform: translateX(-50%);
+        border-radius: 48px 48px 40px 40px;
+        background: linear-gradient(180deg, #243447 0%, #16202d 100%);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0 -12px 18px rgba(0, 0, 0, 0.24);
+        transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      }
+
+      .bulb::before {
+        content: "";
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        width: 58px;
+        height: 58px;
+        transform: translateX(-50%);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        filter: blur(2px);
+      }
+
+      .bulb::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -24px;
+        width: 48px;
+        height: 36px;
+        transform: translateX(-50%);
+        border-radius: 12px 12px 16px 16px;
+        background: linear-gradient(180deg, #4b5563 0%, #111827 100%);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      }
+
+      .bulb-on .bulb {
+        background: linear-gradient(180deg, #fff7c2 0%, #facc15 65%, #eab308 100%);
+        border-color: rgba(250, 204, 21, 0.7);
+        box-shadow:
+          0 0 0 8px rgba(250, 204, 21, 0.12),
+          0 0 40px rgba(250, 204, 21, 0.45),
+          inset 0 -12px 18px rgba(180, 83, 9, 0.18);
+      }
+
+      .bulb-on .bulb-glow {
+        opacity: 1;
+      }
+
+      .bulb-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .bulb-label strong {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .metric {
+        padding: 16px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .metric .label {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin-bottom: 6px;
+      }
+
+      .metric .value {
+        word-break: break-all;
+        font-size: 0.98rem;
+        line-height: 1.5;
+      }
+
+      .log {
+        max-height: 260px;
+        overflow: auto;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+
+      .log li {
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        font-size: 0.92rem;
+        line-height: 1.55;
+      }
+
+      .log .time {
+        display: block;
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin-bottom: 4px;
+      }
+
+      .hint {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.6;
+      }
+
+      @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div class="eyebrow"><span class="dot" id="statusDot"></span><span id="statusText">尚未連線</span></div>
+        <h1>CCIT IoT LED 控制台</h1>
+        <p class="subtitle">這個頁面會連到 <strong>test.mosquitto.org</strong>，並把文字 <strong>on</strong> 或 <strong>off</strong> 發送到 <strong>ccit/iot/led</strong> topic。你也可以直接改 topic 與 payload 再送出。</p>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <div class="card-inner">
+            <h2 class="section-title">發送控制訊息</h2>
+            <div class="status-row">
+              <div class="status-pill"><span class="status-indicator" id="connectionState"></span><span id="connectionLabel">離線</span></div>
+              <div class="status-pill">Broker: <span id="brokerLabel">auto fallback: wss://test.mosquitto.org:8081/mqtt -> ws://test.mosquitto.org:8080/mqtt</span></div>
+            </div>
+
+            <div class="form">
+              <label>
+                Topic
+                <input id="topicInput" type="text" value="ccit/iot/led" />
+              </label>
+
+              <label>
+                Payload
+                <input id="payloadInput" type="text" value="on" />
+              </label>
+
+              <div class="button-row">
+                <button class="primary" id="connectBtn">連線</button>
+                <button class="success" id="onBtn" disabled>送出 on</button>
+                <button class="danger" id="offBtn" disabled>送出 off</button>
+                <button class="ghost" id="disconnectBtn" disabled>中斷連線</button>
+              </div>
+            </div>
+
+            <p class="hint">如果一直連不上，先確認不是瀏覽器網路限制。頁面會先嘗試 8081，失敗後自動切到 8080。</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-inner">
+            <h2 class="section-title">傳送紀錄</h2>
+            <div class="bulb-stage" id="bulbStage">
+              <div class="bulb-shell" aria-hidden="true">
+                <div class="bulb-glow"></div>
+                <div class="bulb"></div>
+              </div>
+              <div class="bulb-label">燈泡狀態：<strong id="bulbStateText">暗</strong></div>
+            </div>
+            <div class="panel-list">
+              <div class="metric">
+                <div class="label">目前 Topic</div>
+                <div class="value" id="topicPreview">ccit/iot/led</div>
+              </div>
+              <div class="metric">
+                <div class="label">最近一則</div>
+                <div class="value" id="lastMessage">尚未發送</div>
+              </div>
+            </div>
+            <ul class="log" id="logList" aria-live="polite"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script>
+      const brokerUrls = [
+        "wss://test.mosquitto.org:8081/mqtt",
+        "ws://test.mosquitto.org:8080/mqtt",
+      ];
+      const listenTopic = "ccit/iot/led";
+      const topicInput = document.getElementById("topicInput");
+      const payloadInput = document.getElementById("payloadInput");
+      const connectBtn = document.getElementById("connectBtn");
+      const disconnectBtn = document.getElementById("disconnectBtn");
+      const onBtn = document.getElementById("onBtn");
+      const offBtn = document.getElementById("offBtn");
+      const statusText = document.getElementById("statusText");
+      const statusDot = document.getElementById("statusDot");
+      const connectionState = document.getElementById("connectionState");
+      const connectionLabel = document.getElementById("connectionLabel");
+      const topicPreview = document.getElementById("topicPreview");
+      const lastMessage = document.getElementById("lastMessage");
+      const logList = document.getElementById("logList");
+      const bulbStage = document.getElementById("bulbStage");
+      const bulbStateText = document.getElementById("bulbStateText");
+      const brokerLabel = document.getElementById("brokerLabel");
+
+      let client = null;
+      let bulbIsOn = false;
+      let activeBrokerIndex = 0;
+      let connectAttemptId = 0;
+
+      function timeLabel() {
+        return new Date().toLocaleTimeString("zh-TW", { hour12: false });
+      }
+
+      function addLog(message) {
+        const item = document.createElement("li");
+        item.innerHTML = `<span class="time">${timeLabel()}</span>${message}`;
+        logList.prepend(item);
+      }
+
+      function setConnectionState(state, label) {
+        statusText.textContent = label;
+        connectionLabel.textContent = label;
+        connectionState.classList.remove("ok", "waiting");
+        statusDot.classList.remove("ok", "waiting");
+
+        if (state === "connected") {
+          connectionState.classList.add("ok");
+          statusDot.classList.add("ok");
+          connectBtn.disabled = true;
+          disconnectBtn.disabled = false;
+          onBtn.disabled = false;
+          offBtn.disabled = false;
+        } else if (state === "connecting") {
+          connectionState.classList.add("waiting");
+          statusDot.classList.add("waiting");
+          connectBtn.disabled = true;
+          disconnectBtn.disabled = true;
+          onBtn.disabled = true;
+          offBtn.disabled = true;
+        } else {
+          connectBtn.disabled = false;
+          disconnectBtn.disabled = true;
+          onBtn.disabled = true;
+          offBtn.disabled = true;
+        }
+      }
+
+      function updatePreview() {
+        topicPreview.textContent = topicInput.value.trim() || "(空 topic)";
+      }
+
+      function updateBrokerLabel() {
+        const current = brokerUrls[activeBrokerIndex] || brokerUrls[0];
+        brokerLabel.textContent = `${current} (fallback: ${brokerUrls.map((url) => url).join(" -> ")})`;
+      }
+
+      function setBulbState(isOn, reason) {
+        bulbIsOn = isOn;
+        bulbStage.classList.toggle("bulb-on", isOn);
+        bulbStateText.textContent = isOn ? "亮" : "暗";
+
+        if (reason) {
+          addLog(reason);
+        }
+      }
+
+      function getClientId() {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          return `ccit-led-${window.crypto.randomUUID()}`;
+        }
+        return `ccit-led-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+
+      function clearClient() {
+        if (client) {
+          client.removeAllListeners();
+          client.end(true);
+          client = null;
+        }
+      }
+
+      function attachClientHandlers(currentAttemptId, brokerUrl) {
+        client.on("connect", () => {
+          if (currentAttemptId !== connectAttemptId) {
+            return;
+          }
+
+          activeBrokerIndex = Math.max(0, brokerUrls.indexOf(brokerUrl));
+          updateBrokerLabel();
+          setConnectionState("connected", "已連線");
+          addLog(`MQTT 已連線成功：${brokerUrl}`);
+
+          client.subscribe(listenTopic, { qos: 0 }, (error) => {
+            if (error) {
+              addLog(`訂閱失敗：${error.message}`);
+              return;
+            }
+
+            addLog(`已訂閱：${listenTopic}`);
+          });
+        });
+
+        client.on("reconnect", () => {
+          if (currentAttemptId !== connectAttemptId) {
+            return;
+          }
+
+          setConnectionState("connecting", "重新連線中");
+          addLog("正在重新連線...");
+        });
+
+        client.on("close", () => {
+          if (currentAttemptId !== connectAttemptId) {
+            return;
+          }
+
+          setConnectionState("disconnected", "已離線");
+          addLog("連線已關閉。");
+        });
+
+        client.on("error", (error) => {
+          if (currentAttemptId !== connectAttemptId) {
+            return;
+          }
+
+          addLog(`錯誤：${error.message}`);
+          clearClient();
+
+          const nextIndex = brokerUrls.indexOf(brokerUrl) + 1;
+          if (nextIndex < brokerUrls.length) {
+            activeBrokerIndex = nextIndex;
+            addLog(`切換到下一個 broker：${brokerUrls[nextIndex]}`);
+            startConnect(currentAttemptId, nextIndex);
+            return;
+          }
+
+          setConnectionState("disconnected", "連線失敗");
+        });
+
+        client.on("message", (topic, message) => {
+          if (topic !== listenTopic) {
+            return;
+          }
+
+          const payload = message.toString().trim().toLowerCase();
+          if (payload === "on") {
+            setBulbState(true, `收到訊息：${topic} -> on`);
+          } else if (payload === "off") {
+            setBulbState(false, `收到訊息：${topic} -> off`);
+          } else {
+            addLog(`收到非預期內容：${topic} -> ${payload || "(空)"}`);
+          }
+        });
+      }
+
+      function startConnect(currentAttemptId, brokerIndex) {
+        const brokerUrl = brokerUrls[brokerIndex];
+        if (!brokerUrl) {
+          setConnectionState("disconnected", "連線失敗");
+          addLog("找不到可用的 broker URL。");
+          return;
+        }
+
+        clearClient();
+        activeBrokerIndex = brokerIndex;
+        updateBrokerLabel();
+
+        setConnectionState("connecting", "連線中");
+        addLog(`嘗試連線到 ${brokerUrl}`);
+
+        client = mqtt.connect(brokerUrl, {
+          clientId: getClientId(),
+          clean: true,
+          connectTimeout: 5000,
+          reconnectPeriod: 0,
+          keepalive: 30,
+        });
+
+        attachClientHandlers(currentAttemptId, brokerUrl);
+      }
+
+      function connect() {
+        const topic = topicInput.value.trim();
+        if (!topic) {
+          addLog("Topic 不可為空。");
+          return;
+        }
+
+        connectAttemptId += 1;
+        startConnect(connectAttemptId, 0);
+      }
+
+      function publish(payload) {
+        if (!client || !client.connected) {
+          addLog("請先完成 MQTT 連線。");
+          return;
+        }
+
+        const topic = topicInput.value.trim();
+        if (!topic) {
+          addLog("Topic 不可為空。");
+          return;
+        }
+
+        payloadInput.value = payload;
+        updatePreview();
+
+        client.publish(topic, payload, { qos: 0 }, (error) => {
+          if (error) {
+            addLog(`發送失敗：${error.message}`);
+            return;
+          }
+
+          lastMessage.textContent = `${topic} -> ${payload}`;
+          addLog(`已發送：${topic} -> ${payload}`);
+        });
+      }
+
+      connectBtn.addEventListener("click", connect);
+      disconnectBtn.addEventListener("click", () => {
+        connectAttemptId += 1;
+        if (client) {
+          clearClient();
+          addLog("手動中斷連線。");
+        }
+        setConnectionState("disconnected", "已離線");
+      });
+
+      onBtn.addEventListener("click", () => publish("on"));
+      offBtn.addEventListener("click", () => publish("off"));
+      topicInput.addEventListener("input", updatePreview);
+
+      updatePreview();
+      updateBrokerLabel();
+      setBulbState(false);
+      setConnectionState("disconnected", "尚未連線");
+      addLog("頁面已載入，請先按「連線」。");
+    </script>
+  </body>
+</html>
